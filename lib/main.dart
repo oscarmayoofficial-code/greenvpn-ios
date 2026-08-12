@@ -1,121 +1,233 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'models/vpn_location.dart';
+import 'services/api.dart';
+import 'services/vpn_bridge.dart';
+import 'widgets/vpn_orb.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+void main() => runApp(const GreenVpnApp());
 
-  // This widget is the root of your application.
+class GreenVpnApp extends StatelessWidget {
+  const GreenVpnApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+      title: 'Green VPN',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(useMaterial3: true).copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0E1310),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2FE84A),
+          brightness: Brightness.dark,
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const HomeScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomeScreenState extends State<HomeScreen> {
+  final _api = GreenVpnApi();
+  final _vpn = VpnBridge.instance;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  ServerConfig? _config;
+  VpnLocation? _selected;
+  VpnState _state = VpnState.disconnected;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _vpn.statusStream.listen((s) => setState(() => _state = s));
+    _loadServers();
   }
+
+  Future<void> _loadServers() async {
+    try {
+      final config = await _api.fetchServers();
+      final prefs = await SharedPreferences.getInstance();
+      final savedId = prefs.getString('location_id');
+      VpnLocation? saved;
+      for (final l in config.locations) {
+        if (l.id == savedId) {
+          saved = l;
+          break;
+        }
+      }
+      setState(() {
+        _config = config;
+        _selected = saved ?? (config.locations.isEmpty ? null : config.locations.first);
+        _error = null;
+      });
+    } catch (e) {
+      setState(() => _error = 'Could not load locations: $e');
+    }
+  }
+
+  Future<void> _toggleConnect() async {
+    final config = _config;
+    final location = _selected;
+    if (config == null || location == null) return;
+
+    if (_state == VpnState.connected || _state == VpnState.connecting) {
+      try {
+        await _vpn.disconnect();
+      } catch (e) {
+        _showSnack(e.toString());
+      }
+      setState(() => _state = VpnState.disconnected);
+      return;
+    }
+
+    setState(() => _state = VpnState.connecting);
+    try {
+      await _vpn.connect(location, config.proxyCreds);
+      setState(() => _state = VpnState.connected);
+    } catch (e) {
+      setState(() => _state = VpnState.error);
+      _showSnack(e.toString());
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _pickLocation() async {
+    final config = _config;
+    if (config == null) return;
+    final picked = await showModalBottomSheet<VpnLocation>(
+      context: context,
+      backgroundColor: const Color(0xFF161C18),
+      isScrollControlled: true,
+      builder: (_) => _LocationSheet(locations: config.locations),
+    );
+    if (picked == null) return;
+    setState(() => _selected = picked);
+    (await SharedPreferences.getInstance()).setString('location_id', picked.id);
+  }
+
+  String get _statusLabel => switch (_state) {
+        VpnState.connected => 'CONNECTED',
+        VpnState.connecting => 'CONNECTING…',
+        VpnState.error => 'CONNECTION FAILED',
+        VpnState.disconnected => 'NOT CONNECTED',
+      };
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final location = _selected;
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'GREEN VPN',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
+              const SizedBox(height: 40),
+              if (location != null)
+                _LocationPill(location: location, onTap: _pickLocation)
+              else if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(_error!, textAlign: TextAlign.center),
+                )
+              else
+                const CircularProgressIndicator(),
+              const SizedBox(height: 32),
+              VpnOrb(state: _state, onTap: location == null ? null : _toggleConnect),
+              const SizedBox(height: 24),
+              Text(
+                _statusLabel,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: switch (_state) {
+                    VpnState.connected => const Color(0xFF2FE84A),
+                    VpnState.connecting => const Color(0xFFFFB020),
+                    _ => const Color(0xFFF0453B),
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+    );
+  }
+}
+
+class _LocationPill extends StatelessWidget {
+  const _LocationPill({required this.location, required this.onTap});
+
+  final VpnLocation location;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            Text(location.flag, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(location.name, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 6),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class _LocationSheet extends StatelessWidget {
+  const _LocationSheet({required this.locations});
+
+  final List<VpnLocation> locations;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.62),
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: locations.length,
+          itemBuilder: (context, i) {
+            final l = locations[i];
+            return ListTile(
+              leading: Text(l.flag, style: const TextStyle(fontSize: 22)),
+              title: Text(l.name),
+              subtitle: Text('${l.city} · ${l.extraMs}ms'),
+              trailing: l.pro
+                  ? const Icon(Icons.lock_outline_rounded, color: Color(0xFFFFD166), size: 18)
+                  : null,
+              onTap: () => Navigator.of(context).pop(l),
+            );
+          },
+        ),
       ),
     );
   }

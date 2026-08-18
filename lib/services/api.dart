@@ -61,8 +61,12 @@ class GreenVpnApi {
       throw Exception('servers fetch failed: HTTP ${res.statusCode}');
     }
     final root = jsonDecode(res.body) as Map<String, dynamic>;
+    // The SOCKS5 proxy lives on the relay IP given by the top-level `proxy_host`
+    // (same host the Android app dials). Each server's `api` is only a control
+    // URL, not the SOCKS host — so thread proxy_host down into every location.
+    final proxyHost = root['proxy_host'] as String? ?? '';
     final servers = (root['servers'] as List<dynamic>)
-        .map((e) => VpnLocation.fromJson(e as Map<String, dynamic>))
+        .map((e) => VpnLocation.fromJson(e as Map<String, dynamic>, proxyHost))
         .toList();
     return ServerConfig(
       locations: servers,

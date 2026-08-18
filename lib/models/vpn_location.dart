@@ -9,6 +9,7 @@ class VpnLocation {
     required this.cc,
     required this.flag,
     required this.api,
+    required this.proxyHost,
     required this.socksPort,
     required this.extraMs,
     required this.mbps,
@@ -21,27 +22,32 @@ class VpnLocation {
   final String city;
   final String cc;
   final String flag;
-  final String api; // proxy host, e.g. https://vpn.greenhole.app
+  final String api; // control URL, e.g. https://vpn.greenhole.app (NOT the SOCKS host)
+  final String proxyHost; // SOCKS5 host to dial = the top-level `proxy_host` (relay IP)
   final int socksPort;
   final int extraMs;
   final int mbps;
   final bool premium;
   final bool pro; // true = locked behind Pro when the gate is on
 
-  factory VpnLocation.fromJson(Map<String, dynamic> j) => VpnLocation(
+  /// [proxyHost] is the top-level `proxy_host` (the relay IP the SOCKS5 proxy
+  /// actually listens on) — same value the Android app dials. The per-server
+  /// `api` field is only a control URL and must NOT be used as the SOCKS host.
+  factory VpnLocation.fromJson(Map<String, dynamic> j, String proxyHost) =>
+      VpnLocation(
         id: j['id'] as String,
         name: j['name'] as String,
         city: j['city'] as String? ?? '',
         cc: j['cc'] as String? ?? '',
         flag: j['flag'] as String? ?? '🌐',
         api: j['api'] as String? ?? '',
+        proxyHost: proxyHost.isNotEmpty
+            ? proxyHost
+            : Uri.parse(j['api'] as String? ?? '').host,
         socksPort: j['socks_port'] as int? ?? 0,
         extraMs: j['extra_ms'] as int? ?? 0,
         mbps: j['mbps'] as int? ?? 0,
         premium: j['premium'] as bool? ?? false,
         pro: j['pro'] as bool? ?? false,
       );
-
-  /// Host to dial the SOCKS5 proxy on — `api` is a URL, we just need the host.
-  String get proxyHost => Uri.parse(api).host;
 }

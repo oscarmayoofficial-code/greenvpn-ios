@@ -115,5 +115,20 @@ unless embed.files_references.include?(ext.product_reference)
   puts "embedded PacketTunnel.appex into Runner"
 end
 
+# ---- 5. Fix "Cycle inside Runner": Embed App Extensions must run BEFORE the
+#         Flutter "Thin Binary" script phase, else xcodebuild reports a cycle.
+phases = runner.build_phases
+thin_idx = nil
+phases.each_with_index { |p, i| thin_idx = i if p.respond_to?(:name) && p.name == 'Thin Binary' }
+embed_idx = nil
+phases.each_with_index { |p, i| embed_idx = i if p == embed }
+if thin_idx && embed_idx && embed_idx > thin_idx
+  phases.delete(embed)
+  ti = nil
+  phases.each_with_index { |p, i| ti = i if p.respond_to?(:name) && p.name == 'Thin Binary' }
+  phases.insert(ti, embed)
+  puts "moved Embed App Extensions before Thin Binary (cycle fix)"
+end
+
 project.save
 puts "pbxproj patched OK (build #{BUILD_NUM})"

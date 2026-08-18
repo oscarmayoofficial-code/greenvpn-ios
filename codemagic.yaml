@@ -28,11 +28,18 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           find . -name "Podfile" -execdir pod install \;
+      - name: Add PacketTunnel Network Extension target
+        script: |
+          gem install xcodeproj --no-document
+          cd ios && PROJECT_BUILD_NUMBER=$PROJECT_BUILD_NUMBER ruby add_ne_target.rb
       - name: Initialize keychain
         script: keychain initialize
       - name: Fetch signing files (create if missing)
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID.PacketTunnel" \
             --type IOS_APP_STORE \
             --create
       - name: Add certificates to keychain

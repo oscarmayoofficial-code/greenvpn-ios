@@ -21,15 +21,24 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         os_log("startTunnel host=%{public}@ port=%d", log: log, type: .info, host, port)
 
-        // 1. Virtual interface settings — route everything through the tunnel.
-        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
+        // 1. Virtual interface settings — route everything through the tunnel,
+        //    BUT exclude the SOCKS5 relay's own IP so hev's connection out to the
+        //    relay uses the real Wi-Fi/cellular interface instead of looping back
+        //    into this tunnel (the iOS equivalent of Android's
+        //    addDisallowedApplication(self)). Without this the tunnel comes up but
+        //    no traffic ever flows.
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: host)
         let ipv4 = NEIPv4Settings(addresses: ["172.19.0.1"], subnetMasks: ["255.255.255.0"])
         ipv4.includedRoutes = [NEIPv4Route.default()]
+        if isIPv4(host) {
+            ipv4.excludedRoutes = [NEIPv4Route(destinationAddress: host,
+                                               subnetMask: "255.255.255.255")]
+        }
         settings.ipv4Settings = ipv4
         let dns = NEDNSSettings(servers: ["1.1.1.1", "8.8.8.8"])
         dns.matchDomains = [""]
         settings.dnsSettings = dns
-        settings.mtu = 8500
+        settings.mtu = 1500
 
         setTunnelNetworkSettings(settings) { [weak self] error in
             guard let self = self else { return }
@@ -42,7 +51,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             // 2. hev-socks5-tunnel config (same shape as the Android tun2socks.yml).
             let yaml = """
             tunnel:
-              mtu: 8500
+              mtu: 1500
             socks5:
               port: \(port)
               address: \(host)
@@ -62,6 +71,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             completionHandler(nil)
         }
+    }
+
+    /// True if `s` is a plain IPv4 literal (so we can exclude it from the tunnel).
+    private func isIPv4(_ s: String) -> Bool {
+        let parts = s.split(separator: ".")
+        return parts.count == 4 && parts.allSatisfy { Int($0).map { $0 >= 0 && $0 <= 255 } ?? false }
     }
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {

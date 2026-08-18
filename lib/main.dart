@@ -173,76 +173,71 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 _TopBar(onInfo: _showInfoDialog, onHeart: _showSupportDialog),
-                Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'GREEN VPN',
-                            style: TextStyle(
-                              color: _brandColor,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 8,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _LocationPill(
-                            label: location != null
-                                ? '${location.flag}  ${location.name}'
-                                : (_error != null ? 'Retry' : 'Select location'),
-                            onTap: () {
-                              if (_error != null && location == null) {
-                                _loadServers();
-                              } else if (location != null) {
-                                setState(() => _pickerOpen = true);
-                              }
-                            },
-                          ),
-                          if (_error != null && location == null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10, left: 24, right: 24),
-                              child: Text(
-                                _error!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: _ringRed, fontSize: 12),
-                              ),
-                            ),
-                          const SizedBox(height: 40),
-                          VpnOrb(state: _state, onTap: location == null ? null : _toggleConnect),
-                          const SizedBox(height: 12),
-                          Text(
-                            _orbLabel,
-                            style: TextStyle(
-                              color: ringColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                              letterSpacing: 0.7,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              _statusLine,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: _statusGrey, fontSize: 13),
-                            ),
-                          ),
-                          if (_state == VpnState.connected) ...[
-                            const SizedBox(height: 18),
-                            const _UsagePanel(),
-                          ],
-                          const SizedBox(height: 28),
-                          const _HouseAdCard(),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    ),
+                const SizedBox(height: 2),
+                const Text(
+                  'GREEN VPN',
+                  style: TextStyle(
+                    color: _brandColor,
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 8,
                   ),
                 ),
+                const SizedBox(height: 14),
+                _LocationPill(
+                  label: location != null
+                      ? '${location.flag}  ${location.name}'
+                      : (_error != null ? 'Retry' : 'Select location'),
+                  onTap: () {
+                    if (_error != null && location == null) {
+                      _loadServers();
+                    } else if (location != null) {
+                      setState(() => _pickerOpen = true);
+                    }
+                  },
+                ),
+                if (_error != null && location == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, left: 24, right: 24),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: _ringRed, fontSize: 12),
+                    ),
+                  ),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      VpnOrb(state: _state, onTap: location == null ? null : _toggleConnect),
+                      const SizedBox(height: 14),
+                      Text(
+                        _orbLabel,
+                        style: TextStyle(
+                          color: ringColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          _statusLine,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: _statusGrey, fontSize: 13),
+                        ),
+                      ),
+                      if (_state == VpnState.connected) ...[
+                        const SizedBox(height: 14),
+                        const _UsagePanel(),
+                      ],
+                    ],
+                  ),
+                ),
+                const _HouseAdCard(),
+                const SizedBox(height: 16),
               ],
             ),
           ),

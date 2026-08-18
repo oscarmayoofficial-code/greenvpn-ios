@@ -1,55 +1,43 @@
-# Cloud macOS build for Green VPN (iOS) — you have no Mac, this builds the
-# IPA for you on Codemagic's macOS machines and uploads it to App Store
-# Connect. Same pattern as the Green Hole iOS project (D:\ios\greenhole).
+# Cloud macOS build for Green VPN (iOS) — no Mac needed. Builds the IPA on
+# Codemagic and uploads to TestFlight. Same PROVEN API-key-driven pattern as the
+# Green Hole iOS release (submitted 2026-08-19). Signing env vars are passed at
+# build-trigger time via the Codemagic REST API (POST /builds), NOT stored here:
+#   APP_STORE_CONNECT_ISSUER_ID / _KEY_IDENTIFIER / _PRIVATE_KEY (.p8 contents)
+#   CERTIFICATE_PRIVATE_KEY (RSA)
+# GitHub repo must be PUBLIC (Codemagic has no GitHub auth here).
 #
-# ONE-TIME SETUP:
-#   1. Confirm the Apple Developer Program account (applied for as of
-#      2026-08-12) is actually ACTIVE.
-#   2. Request the "Network Extensions" capability / Personal VPN
-#      entitlement from Apple for this account — a VPN app cannot ship
-#      without it, and approval can take days, so file this BEFORE the
-#      native PacketTunnelProvider extension is finished. See
-#      greenvpn-ios-app memory for why this is the biggest blocker.
-#   3. Push this project (D:\ios\greenvpn) to a GitHub/GitLab repo.
-#   4. In Codemagic: add the app from that repo.
-#   5. Codemagic > Teams > Integrations > App Store Connect: create an API
-#      key integration named exactly "AppStoreConnect" (matches below).
-#   6. Register the bundle id com.oscar.greenvpn in App Store Connect
-#      (plus the PacketTunnelExtension's own bundle id, once that target
-#      exists) and create the app record (name: Green VPN).
-#   7. Push a commit — this workflow runs, signs, and uploads to TestFlight.
-#
-# No Mac and no local Xcode are ever needed; everything below runs in the
-# cloud. NOTE: as of 2026-08-12 the native VPN tunnel (NEPacketTunnelProvider
-# extension) hasn't been added to this project yet — this workflow currently
-# builds/ships the UI shell only. Adding the extension target needs either
-# hand-edited project.pbxproj or a tool like XcodeGen run as a build step
-# here (candidate approach, not yet wired in).
+# Green VPN uses its OWN bundle id (com.oscar.greenvpn), OWN GitHub repo
+# (greenvpn-ios) and OWN App Store Connect app record — the Green Hole project
+# is untouched. NOTE: this currently builds the UI shell only; the native VPN
+# tunnel (NEPacketTunnelProvider) + Network Extension entitlement come next.
 
 workflows:
   ios-release:
     name: Green VPN iOS release
     instance_type: mac_mini_m2
     max_build_duration: 60
-    integrations:
-      app_store_connect: AppStoreConnect
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.oscar.greenvpn
       flutter: stable
       xcode: latest
       cocoapods: default
       vars:
         BUNDLE_ID: "com.oscar.greenvpn"
-        APP_STORE_APPLE_ID: 0000000000  # replace with the numeric Apple ID of the app record
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
       - name: Install CocoaPods dependencies
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: Set up code signing
+      - name: Initialize keychain
+        script: keychain initialize
+      - name: Fetch signing files (create if missing)
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Add certificates to keychain
+        script: keychain add-certificates
+      - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
       - name: Flutter analyze
         script: flutter analyze
@@ -65,8 +53,8 @@ workflows:
       - flutter_drive.log
     publishing:
       app_store_connect:
-        auth: integration
-        # Uploads to TestFlight automatically. Flip submit_to_app_store to true
-        # only when you're ready to push to actual App Store review.
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         submit_to_app_store: false

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/vpn_location.dart';
@@ -53,13 +54,41 @@ class _HomeScreenState extends State<HomeScreen> {
   VpnLocation? _selected;
   VpnState _state = VpnState.disconnected;
   String? _error;
+  String? _publicIp; // exit IP shown under the orb once connected
   bool _pickerOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _vpn.statusStream.listen((s) => setState(() => _state = s));
+    _vpn.statusStream.listen((s) {
+      setState(() => _state = s);
+      if (s == VpnState.connected) {
+        _fetchIp();
+      } else {
+        setState(() => _publicIp = null);
+      }
+    });
     _loadServers();
+  }
+
+  /// Fetch the current public IP once the tunnel is up — the request routes
+  /// through the VPN, so this is the exit IP. Shown under the orb like Android.
+  Future<void> _fetchIp() async {
+    setState(() => _publicIp = null);
+    await Future.delayed(const Duration(milliseconds: 600));
+    for (var attempt = 0; attempt < 4; attempt++) {
+      if (!mounted || _state != VpnState.connected) return;
+      try {
+        final res = await http
+            .get(Uri.parse('https://api.ipify.org'))
+            .timeout(const Duration(seconds: 6));
+        if (res.statusCode == 200 && mounted && _state == VpnState.connected) {
+          setState(() => _publicIp = res.body.trim());
+          return;
+        }
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 900));
+    }
   }
 
   Future<void> _loadServers() async {
@@ -230,8 +259,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       if (_state == VpnState.connected) ...[
-                        const SizedBox(height: 14),
-                        const _UsagePanel(),
+                        const SizedBox(height: 12),
+                        Text(
+                          _publicIp == null ? 'Fetching IP…' : 'IP: $_publicIp',
+                          style: const TextStyle(
+                            color: Color(0xFF1EE38B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
                       ],
                     ],
                   ),
@@ -476,32 +513,6 @@ class _SignalBars extends StatelessWidget {
           ),
         );
       }),
-    );
-  }
-}
-
-/// Simplified live-usage readout — the Android app's UsageGraphView needs a
-/// real byte counter from the tunnel, which the iOS native side doesn't
-/// stream yet, so this shows placeholder totals with the same layout/colors.
-class _UsagePanel extends StatelessWidget {
-  const _UsagePanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 260,
-      child: Row(
-        children: const [
-          Expanded(
-            child: Text('↓ 0.00 MB', style: TextStyle(color: Color(0xFF1EE38B), fontSize: 13)),
-          ),
-          Expanded(
-            child: Text('↑ 0.00 MB',
-                textAlign: TextAlign.right,
-                style: TextStyle(color: Color(0xFF39B0FF), fontSize: 13)),
-          ),
-        ],
-      ),
     );
   }
 }

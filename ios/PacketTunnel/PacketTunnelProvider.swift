@@ -40,7 +40,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             dbg("excludedRoute added for relay \(host)/32")
         }
         settings.ipv4Settings = ipv4
-        let dns = NEDNSSettings(servers: ["1.1.1.1", "8.8.8.8"])
+        // DNS points at hev's built-in mapdns listener (172.19.0.2). mapdns
+        // answers queries locally with fake IPs and resolves the real domain
+        // server-side over the SOCKS5 TCP connection — so DNS never has to travel
+        // as UDP through the proxy. That UDP-through-proxy path works for the
+        // direct Singapore exit but FAILS for the chained (uid-routed) locations,
+        // which is why only Singapore had data before. Same as the Android app.
+        let dns = NEDNSSettings(servers: ["172.19.0.2"])
         dns.matchDomains = [""]
         settings.dnsSettings = dns
         settings.mtu = 1500
@@ -62,16 +68,21 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             let yaml = """
             tunnel:
               mtu: 1500
+              ipv4: 172.19.0.1
             socks5:
               port: \(port)
               address: \(host)
               udp: 'udp'
               username: '\(user)'
               password: '\(pass)'
+            mapdns:
+              address: 172.19.0.2
+              port: 53
+              network: 100.64.0.0
+              netmask: 255.192.0.0
+              cache-size: 10000
             misc:
-              task-stack-size: 20480
-              connect-timeout: 5000
-              read-write-timeout: 60000
+              task-stack-size: 81920
               log-level: warn
             """
             self.dbg("starting hev...")

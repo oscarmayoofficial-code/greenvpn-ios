@@ -62,8 +62,8 @@ class _VpnOrbState extends State<VpnOrb> with TickerProviderStateMixin {
     return GestureDetector(
       onTap: widget.onTap,
       child: SizedBox(
-        width: 160,
-        height: 160,
+        width: 190,
+        height: 190,
         child: AnimatedBuilder(
           animation: Listenable.merge([_ringMid, _ringInner, _pulse, _pop]),
           builder: (context, _) {
@@ -78,23 +78,23 @@ class _VpnOrbState extends State<VpnOrb> with TickerProviderStateMixin {
                 Transform.rotate(
                   angle: _ringMid.value * 2 * math.pi,
                   child: CustomPaint(
-                    size: const Size(160, 160),
-                    painter: _RingPainter(color: ringColor, radius: 78, dashed: true),
+                    size: const Size(190, 190),
+                    painter: _RingPainter(color: ringColor, radius: 93, dashed: true),
                   ),
                 ),
                 Transform.rotate(
                   angle: -_ringInner.value * 2 * math.pi,
                   child: CustomPaint(
-                    size: const Size(160, 160),
-                    painter: _RingPainter(color: ringColor, radius: 64, dashed: true),
+                    size: const Size(190, 190),
+                    painter: _RingPainter(color: ringColor, radius: 76, dashed: true),
                   ),
                 ),
                 // core
                 Transform.scale(
                   scale: 0.9 + 0.1 * pop,
                   child: Container(
-                    width: 103,
-                    height: 103,
+                    width: 122,
+                    height: 122,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
@@ -120,7 +120,7 @@ class _VpnOrbState extends State<VpnOrb> with TickerProviderStateMixin {
                     angle: (1 - pop) * -2.1,
                     child: Icon(
                       Icons.power_settings_new_rounded,
-                      size: 52,
+                      size: 62,
                       color: ringColor,
                     ),
                   ),
@@ -142,8 +142,8 @@ class _Glow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 160,
-      height: 160,
+      width: 190,
+      height: 190,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: RadialGradient(

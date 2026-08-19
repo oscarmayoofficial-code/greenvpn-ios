@@ -49,7 +49,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let dns = NEDNSSettings(servers: ["172.19.0.2"])
         dns.matchDomains = [""]
         settings.dnsSettings = dns
-        settings.mtu = 1500
+        // 8500 matches the Android app — a large tun MTU means iOS hands hev
+        // fewer, bigger packets, which drastically cuts per-packet overhead and
+        // raises throughput (1500 was a debugging value and throttled speed).
+        settings.mtu = 8500
 
         setTunnelNetworkSettings(settings) { [weak self] error in
             guard let self = self else { return }
@@ -67,7 +70,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             // 3. hev-socks5-tunnel config (same shape as Android's tun2socks.yml).
             let yaml = """
             tunnel:
-              mtu: 1500
+              mtu: 8500
               ipv4: 172.19.0.1
             socks5:
               port: \(port)

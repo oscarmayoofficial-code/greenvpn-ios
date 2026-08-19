@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/vpn_location.dart';
 import 'api.dart';
@@ -42,6 +43,10 @@ class VpnBridge {
       };
 
   Future<void> connect(VpnLocation location, ProxyCreds creds) async {
+    // Pull the user's Settings toggles so the native tunnel can apply them
+    // (CleanWeb/Web-blocker -> filtering DNS, small packets -> MTU 1280,
+    // Discover-on-LAN -> keep the local subnet outside the tunnel).
+    final p = await SharedPreferences.getInstance();
     try {
       await _channel.invokeMethod('connect', {
         'host': location.proxyHost,
@@ -49,6 +54,10 @@ class VpnBridge {
         'username': creds.username,
         'password': creds.password,
         'locationId': location.id,
+        'cleanweb': p.getBool('cleanweb') ?? false,
+        'webblock': p.getBool('webblock') ?? false,
+        'smallPackets': p.getBool('small_packets') ?? false,
+        'discoverLan': p.getBool('discover_lan') ?? true,
       });
     } on MissingPluginException {
       throw VpnUnavailableException();

@@ -26,8 +26,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let port = (conf["port"] as? Int) ?? (conf["port"] as? NSNumber)?.intValue ?? 0
         let user = (conf["username"] as? String) ?? ""
         let pass = (conf["password"] as? String) ?? ""
+        let cleanweb = (conf["cleanweb"] as? Bool) ?? false
+        let webblock = (conf["webblock"] as? Bool) ?? false
+        let smallPackets = (conf["smallPackets"] as? Bool) ?? false
+        let discoverLan = (conf["discoverLan"] as? Bool) ?? true
+        let filterDns = cleanweb || webblock
+        let mtu = smallPackets ? 1280 : 8500
 
-        dbg("startTunnel host=\(host) port=\(port) user=\(user) passLen=\(pass.count)")
+        dbg("startTunnel host=\(host) port=\(port) cleanweb=\(cleanweb) webblock=\(webblock) small=\(smallPackets) lan=\(discoverLan)")
 
         // 1. Virtual interface: route everything through the tunnel, but exclude the
         //    relay IP so hev's own connection out to it uses the real interface
@@ -35,24 +41,36 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: host.isEmpty ? "127.0.0.1" : host)
         let ipv4 = NEIPv4Settings(addresses: ["172.19.0.1"], subnetMasks: ["255.255.255.0"])
         ipv4.includedRoutes = [NEIPv4Route.default()]
+        // Exclude the relay IP (so hev's own uplink never loops back into the
+        // tunnel) and, when "Discover on LAN" is on, the private LAN ranges (so
+        // local devices stay reachable and bypass the VPN).
+        var excluded: [NEIPv4Route] = []
         if isIPv4(host) {
-            ipv4.excludedRoutes = [NEIPv4Route(destinationAddress: host, subnetMask: "255.255.255.255")]
-            dbg("excludedRoute added for relay \(host)/32")
+            excluded.append(NEIPv4Route(destinationAddress: host, subnetMask: "255.255.255.255"))
         }
+        if discoverLan {
+            excluded.append(NEIPv4Route(destinationAddress: "192.168.0.0", subnetMask: "255.255.0.0"))
+            excluded.append(NEIPv4Route(destinationAddress: "10.0.0.0", subnetMask: "255.0.0.0"))
+            excluded.append(NEIPv4Route(destinationAddress: "172.16.0.0", subnetMask: "255.240.0.0"))
+        }
+        ipv4.excludedRoutes = excluded
         settings.ipv4Settings = ipv4
-        // DNS points at hev's built-in mapdns listener (172.19.0.2). mapdns
-        // answers queries locally with fake IPs and resolves the real domain
-        // server-side over the SOCKS5 TCP connection — so DNS never has to travel
-        // as UDP through the proxy. That UDP-through-proxy path works for the
-        // direct Singapore exit but FAILS for the chained (uid-routed) locations,
-        // which is why only Singapore had data before. Same as the Android app.
-        let dns = NEDNSSettings(servers: ["172.19.0.2"])
+        // DNS: CleanWeb / Web-content-blocker switch to AdGuard filtering DNS
+        // (Family = adult+gambling, Default = ads/malware), exactly like the
+        // Android app. Otherwise DNS goes to hev's local mapdns (172.19.0.2),
+        // which resolves via the SOCKS5 TCP path so it works on every location.
+        let dnsServers: [String]
+        if webblock {
+            dnsServers = ["94.140.14.15", "94.140.15.16"]   // AdGuard Family
+        } else if cleanweb {
+            dnsServers = ["94.140.14.14", "94.140.15.15"]   // AdGuard Default
+        } else {
+            dnsServers = ["172.19.0.2"]                      // hev mapdns
+        }
+        let dns = NEDNSSettings(servers: dnsServers)
         dns.matchDomains = [""]
         settings.dnsSettings = dns
-        // 8500 matches the Android app — a large tun MTU means iOS hands hev
-        // fewer, bigger packets, which drastically cuts per-packet overhead and
-        // raises throughput (1500 was a debugging value and throttled speed).
-        settings.mtu = 8500
+        settings.mtu = NSNumber(value: mtu)   // 8500 default, 1280 for "small packets"
 
         setTunnelNetworkSettings(settings) { [weak self] error in
             guard let self = self else { return }
@@ -68,26 +86,15 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             self.runRelayProbe(host: host, port: port)
 
             // 3. hev-socks5-tunnel config (same shape as Android's tun2socks.yml).
-            let yaml = """
-            tunnel:
-              mtu: 8500
-              ipv4: 172.19.0.1
-            socks5:
-              port: \(port)
-              address: \(host)
-              udp: 'udp'
-              username: '\(user)'
-              password: '\(pass)'
-            mapdns:
-              address: 172.19.0.2
-              port: 53
-              network: 100.64.0.0
-              netmask: 255.192.0.0
-              cache-size: 10000
-            misc:
-              task-stack-size: 81920
-              log-level: warn
-            """
+            var yaml = "tunnel:\n  mtu: \(mtu)\n  ipv4: 172.19.0.1\n"
+            yaml += "socks5:\n  port: \(port)\n  address: \(host)\n  udp: 'udp'\n"
+            yaml += "  username: '\(user)'\n  password: '\(pass)'\n"
+            if !filterDns {
+                // mapdns only when we're NOT using an external filtering resolver.
+                yaml += "mapdns:\n  address: 172.19.0.2\n  port: 53\n"
+                yaml += "  network: 100.64.0.0\n  netmask: 255.192.0.0\n  cache-size: 10000\n"
+            }
+            yaml += "misc:\n  task-stack-size: 81920\n  log-level: warn\n"
             self.dbg("starting hev...")
             Socks5Tunnel.run(withConfig: .string(content: yaml)) { code in
                 self.dbg("hev EXITED code=\(code)")

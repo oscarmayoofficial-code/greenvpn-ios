@@ -38,8 +38,14 @@ class VpnChannel: NSObject, FlutterStreamHandler {
             }
             let user = args["username"] as? String ?? ""
             let pass = args["password"] as? String ?? ""
+            let settings: [String: Any] = [
+                "cleanweb": args["cleanweb"] as? Bool ?? false,
+                "webblock": args["webblock"] as? Bool ?? false,
+                "smallPackets": args["smallPackets"] as? Bool ?? false,
+                "discoverLan": args["discoverLan"] as? Bool ?? true,
+            ]
             emit("connecting")
-            connect(host: host, port: port, user: user, pass: pass, result: result)
+            connect(host: host, port: port, user: user, pass: pass, settings: settings, result: result)
         case "disconnect":
             disconnect(result: result)
         default:
@@ -48,7 +54,7 @@ class VpnChannel: NSObject, FlutterStreamHandler {
     }
 
     private func connect(host: String, port: Int, user: String, pass: String,
-                         result: @escaping FlutterResult) {
+                         settings: [String: Any], result: @escaping FlutterResult) {
         NETunnelProviderManager.loadAllFromPreferences { [weak self] managers, error in
             guard let self = self else { return }
             if let error = error {
@@ -61,12 +67,14 @@ class VpnChannel: NSObject, FlutterStreamHandler {
             proto.providerBundleIdentifier = self.extensionBundleId
             // serverAddress is display-only for the Settings VPN row.
             proto.serverAddress = host
-            proto.providerConfiguration = [
+            var providerConf: [String: Any] = [
                 "host": host,
                 "port": port,
                 "username": user,
                 "password": pass,
             ]
+            settings.forEach { providerConf[$0.key] = $0.value }
+            proto.providerConfiguration = providerConf
             mgr.protocolConfiguration = proto
             mgr.localizedDescription = "Green VPN"
             mgr.isEnabled = true

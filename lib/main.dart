@@ -108,6 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _selected = saved ?? (config.locations.isEmpty ? null : config.locations.first);
         _error = null;
       });
+      // Auto-connect: if the user turned it on, connect as soon as the app opens.
+      if ((prefs.getBool('auto_connect') ?? false) &&
+          _selected != null &&
+          _state == VpnState.disconnected) {
+        _toggleConnect();
+      }
     } catch (e) {
       setState(() => _error = 'Could not load locations: $e');
     }

@@ -49,8 +49,8 @@ class VpnBridge {
     final p = await SharedPreferences.getInstance();
     try {
       await _channel.invokeMethod('connect', {
-        'host': location.proxyHost,
-        'port': location.socksPort,
+        'host': location.dialHost,
+        'port': location.dialPort,
         'username': creds.username,
         'password': creds.password,
         'locationId': location.id,

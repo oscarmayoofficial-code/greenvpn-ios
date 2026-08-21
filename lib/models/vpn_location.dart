@@ -11,6 +11,8 @@ class VpnLocation {
     required this.api,
     required this.proxyHost,
     required this.socksPort,
+    required this.dhost,
+    required this.dsport,
     required this.extraMs,
     required this.mbps,
     required this.premium,
@@ -25,6 +27,8 @@ class VpnLocation {
   final String api; // control URL, e.g. https://vpn.greenhole.app (NOT the SOCKS host)
   final String proxyHost; // SOCKS5 host to dial = the top-level `proxy_host` (relay IP)
   final int socksPort;
+  final String dhost; // per-location DIRECT relay host (e.g. USA -> US relay, skips SG); '' = use proxyHost
+  final int dsport; // its socks port; 0 = use socksPort on the global relay
   final int extraMs;
   final int mbps;
   final bool premium;
@@ -45,9 +49,18 @@ class VpnLocation {
             ? proxyHost
             : Uri.parse(j['api'] as String? ?? '').host,
         socksPort: j['socks_port'] as int? ?? 0,
+        dhost: j['dhost'] as String? ?? '',
+        dsport: j['dsport'] as int? ?? 0,
         extraMs: j['extra_ms'] as int? ?? 0,
         mbps: j['mbps'] as int? ?? 0,
         premium: j['premium'] as bool? ?? false,
         pro: j['pro'] as bool? ?? false,
       );
+
+  /// The host/port the tunnel should actually dial: a location's own direct
+  /// relay (dhost/dsport) when present — e.g. USA cities go straight to the US
+  /// relay, skipping the Singapore hop — otherwise the global proxyHost:socksPort.
+  bool get isDirect => dhost.isNotEmpty && dsport > 0;
+  String get dialHost => isDirect ? dhost : proxyHost;
+  int get dialPort => isDirect ? dsport : socksPort;
 }

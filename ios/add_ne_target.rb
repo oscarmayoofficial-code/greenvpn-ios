@@ -57,7 +57,7 @@ ext.build_configurations.each do |c|
   bs['CODE_SIGN_ENTITLEMENTS']   = 'PacketTunnel/PacketTunnel.entitlements'
   bs['SWIFT_VERSION']            = '5.0'
   bs['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-  bs['TARGETED_DEVICE_FAMILY']   = '1,2'
+  bs['TARGETED_DEVICE_FAMILY']   = '1'
   bs['GENERATE_INFOPLIST_FILE']  = 'NO'
   bs['MARKETING_VERSION']        = MKT_VER
   bs['CURRENT_PROJECT_VERSION']  = BUILD_NUM

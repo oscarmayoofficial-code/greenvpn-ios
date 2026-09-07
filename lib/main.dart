@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'models/vpn_location.dart';
 import 'services/api.dart';
@@ -279,7 +280,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                const _HouseAdCard(),
                 const SizedBox(height: 16),
               ],
             ),
@@ -465,19 +465,6 @@ class _LocationOverlayState extends State<_LocationOverlay> {
                                         ],
                                       ),
                                     ),
-                                    if (l.premium) ...[
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE6F4EA),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Text('Pro',
-                                            style: TextStyle(
-                                                color: Color(0xFF16A34A), fontSize: 13, fontWeight: FontWeight.w600)),
-                                      ),
-                                      const SizedBox(width: 12),
-                                    ],
                                     const _SignalBars(),
                                   ],
                                 ),
@@ -523,99 +510,9 @@ class _SignalBars extends StatelessWidget {
   }
 }
 
-/// Green Hole house-ad — same AdMob-native-style card as the Android app
-/// (server-driven house_ad; static here for the visual match).
-class _HouseAdCard extends StatelessWidget {
-  const _HouseAdCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 340,
-      height: 250,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E1A14),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF203A2C)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF9C823),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: const Text('Ad',
-                style: TextStyle(color: Color(0xFF202124), fontSize: 10, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16A34A),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.download_rounded, color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Green Hole',
-                        style: TextStyle(color: Color(0xFFF1F3F4), fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 3),
-                    Text('★★★★★  4.9  ·  App Store',
-                        style: TextStyle(color: Color(0xFFF9C823), fontSize: 12)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text('Download videos from FB, TikTok, Instagram & YouTube - free',
-              style: TextStyle(color: Color(0xFF9AA6A0), fontSize: 13)),
-          const Spacer(),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF3A3A3A)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.apple, color: Colors.white, size: 26),
-                SizedBox(width: 10),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Download on the', style: TextStyle(color: Color(0xFFCCCCCC), fontSize: 8)),
-                    Text('App Store',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Full card-style Settings screen — exact copy of the Android app's Surfshark-style
-/// Settings (CONNECTIVITY / CONTENT / ADVANCED / ACCOUNT). Toggles persist locally;
-/// the actual VPN behaviour is wired to the native extension once it exists.
+/// Card-style Settings screen. Only options that the native tunnel actually
+/// honours are listed (see VpnBridge.connect / PacketTunnelProvider): every
+/// toggle here changes real behaviour — nothing is a placeholder.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
   @override
@@ -634,7 +531,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
     setState(() {
-      for (final k in ['auto_connect', 'cleanweb', 'killswitch', 'webblock', 'discover_lan', 'small_packets', 'rotate_ip']) {
+      for (final k in ['auto_connect', 'cleanweb', 'webblock', 'discover_lan', 'small_packets']) {
         _t[k] = p.getBool(k) ?? (k == 'discover_lan');
       }
     });
@@ -735,26 +632,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 2, 14, 26),
                 children: [
                   _label('CONNECTIVITY'),
-                  _row('🌐', 'Quick-connect', 'Connect button uses: Auto · Fastest'),
-                  _row('📍', 'Default location', 'Auto-connect to this if a location fails: Not set'),
                   _toggle('⚡', const Color(0xFFF5B301), 'Auto-connect', 'Connects automatically when you open Green VPN.', 'auto_connect'),
                   _toggle('🧹', const Color(0xFF3B82F6), 'CleanWeb', 'Blocks ads, trackers and malware when the VPN is connected.', 'cleanweb'),
-                  _toggle('🛡', const Color(0xFF16A34A), 'Kill switch', 'Cuts off the internet if the VPN drops or is turned off.', 'killswitch'),
-                  _row('🔒', 'System Lock', 'Always-on VPN & block connections without VPN.'),
-                  _row('⚙', 'Protocol', 'Automatic (Secure Proxy)'),
-                  _row('🔀', 'Bypasser', 'Choose apps that skip the VPN.'),
                   _label('CONTENT'),
                   _toggle('🚫', const Color(0xFFEF4444), 'Web content blocker', 'Blocks adult, gambling and similar websites.', 'webblock'),
                   _label('ADVANCED'),
                   _toggle('📶', const Color(0xFF0EA5E9), 'Discover on LAN', 'Access other devices on your local network while connected.', 'discover_lan'),
                   _toggle('📦', const Color(0xFF8B5CF6), 'Use small packets', 'Smaller packets improve compatibility with some routers and mobile networks.', 'small_packets'),
-                  _toggle('🔁', const Color(0xFFF59E0B), 'Use rotating IP', 'Automatically changes your IP every few minutes.', 'rotate_ip'),
-                  _label('ACCOUNT'),
-                  _row('🎟', 'Redeem Pro code', 'Unlock all premium locations'),
-                  _row('📄', 'Privacy Policy', 'How we protect your data'),
+                  _label('ABOUT'),
+                  _row('📄', 'Privacy Policy', 'How we protect your data',
+                      onTap: () => launchUrl(Uri.parse('https://green-vpn.app/privacy'),
+                          mode: LaunchMode.externalApplication)),
                   const SizedBox(height: 20),
                   const Center(
-                      child: Text('Green VPN  v7.8', style: TextStyle(color: Color(0xFF5C6B63), fontSize: 12))),
+                      child: Text('Green VPN  v2.01', style: TextStyle(color: Color(0xFF5C6B63), fontSize: 12))),
                 ],
               ),
             ),

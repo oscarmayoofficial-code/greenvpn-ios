@@ -67,6 +67,7 @@ class GreenVpnApi {
     final proxyHost = root['proxy_host'] as String? ?? '';
     final servers = (root['servers'] as List<dynamic>)
         .map((e) => VpnLocation.fromJson(e as Map<String, dynamic>, proxyHost))
+        .where((l) => l.offeredOnIos) // free app: never list a locked location
         .toList();
     return ServerConfig(
       locations: servers,

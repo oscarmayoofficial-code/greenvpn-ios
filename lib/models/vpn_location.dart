@@ -17,6 +17,7 @@ class VpnLocation {
     required this.mbps,
     required this.premium,
     required this.pro,
+    required this.free,
   });
 
   final String id;
@@ -33,6 +34,7 @@ class VpnLocation {
   final int mbps;
   final bool premium;
   final bool pro; // true = locked behind Pro when the gate is on
+  final bool free; // server's `free` flag: usable without any purchase
 
   /// [proxyHost] is the top-level `proxy_host` (the relay IP the SOCKS5 proxy
   /// actually listens on) — same value the Android app dials. The per-server
@@ -55,7 +57,13 @@ class VpnLocation {
         mbps: j['mbps'] as int? ?? 0,
         premium: j['premium'] as bool? ?? false,
         pro: j['pro'] as bool? ?? false,
+        free: j['free'] as bool? ?? false,
       );
+
+  /// iOS ships as a free app with no in-app purchase, so only locations the
+  /// server marks `free` (plus the Auto picker, which itself only chooses
+  /// among free exits) are ever offered — nothing shown is ever locked.
+  bool get offeredOnIos => free || id == 'auto';
 
   /// The host/port the tunnel should actually dial: a location's own direct
   /// relay (dhost/dsport) when present — e.g. USA cities go straight to the US

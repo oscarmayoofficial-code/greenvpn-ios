@@ -1,0 +1,65 @@
+# Cloud macOS build for "Green VPN: Secure Proxy" (iOS) — no Mac needed. Builds
+# the IPA on Codemagic and uploads to TestFlight. Signing env vars are passed
+# at build-trigger time via the Codemagic REST API (POST /builds), NOT stored here:
+#   APP_STORE_CONNECT_ISSUER_ID / _KEY_IDENTIFIER / _PRIVATE_KEY (.p8 contents)
+#   CERTIFICATE_PRIVATE_KEY (RSA)
+# GitHub repo must be PUBLIC (Codemagic has no GitHub auth here).
+#
+# Bundle id app.greenvpn.ios, repo greenvpn-ios-secure, own App Store Connect
+# record. Free app: the client reads ONLY `servers[]`, `proxy_host` and `px`
+# from /api/servers?src=ios — no remote feature flags of any kind.
+
+workflows:
+  ios-release:
+    name: Green VPN Secure Proxy iOS release
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "app.greenvpn.ios"
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Install CocoaPods dependencies
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Add PacketTunnel Network Extension target
+        script: |
+          gem install xcodeproj --no-document
+          cd ios && PROJECT_BUILD_NUMBER=$PROJECT_BUILD_NUMBER ruby add_ne_target.rb
+      - name: Initialize keychain
+        script: keychain initialize
+      - name: Fetch signing files (create if missing)
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID.PacketTunnel" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Add certificates to keychain
+        script: keychain add-certificates
+      - name: Set up code signing settings on Xcode project
+        script: xcode-project use-profiles
+      - name: Flutter analyze
+        script: flutter analyze
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --build-name=2.1.0 \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        submit_to_app_store: false

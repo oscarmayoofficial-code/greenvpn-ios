@@ -20,6 +20,7 @@ workflows:
           V=$(cat sing-box-mac/VERSION)
           for a in arm64 amd64; do
             d=$([ "$a" = arm64 ] && echo arm64 || echo x64)
+            mkdir -p "sing-box-mac/$d"
             curl -sL "https://github.com/SagerNet/sing-box/releases/download/v$V/sing-box-$V-darwin-$a.tar.gz" | tar -xz -C /tmp
             cp "/tmp/sing-box-$V-darwin-$a/sing-box" "sing-box-mac/$d/sing-box"
             chmod +x "sing-box-mac/$d/sing-box"

@@ -22,7 +22,13 @@
         "nsis"
       ],
       "icon": "ui/icon.ico",
-      "requestedExecutionLevel": "requireAdministrator"
+      "requestedExecutionLevel": "requireAdministrator",
+      "extraResources": [
+        {
+          "from": "sing-box",
+          "to": "sing-box"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -31,12 +37,6 @@
       "createDesktopShortcut": true,
       "shortcutName": "Green VPN"
     },
-    "extraResources": [
-      {
-        "from": "sing-box",
-        "to": "sing-box"
-      }
-    ],
     "files": [
       "main.js",
       "preload.js",
@@ -64,7 +64,8 @@
           "from": "sing-box-mac",
           "to": "sing-box-mac"
         }
-      ]
+      ],
+      "x64ArchFiles": "Contents/Resources/sing-box-mac/**"
     },
     "dmg": {
       "title": "Green VPN",

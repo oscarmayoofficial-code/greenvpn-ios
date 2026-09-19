@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Green VPN</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#16a34a;--green2:#22c55e;--green-d:#0f8f3c;--ink:#0e2b1c;
+  --muted:#7c8f86;--line:#eef3f0;--card:#ffffff;
+  --hero1:#f7fbf9;--hero2:#eef7f1}
+html,body{height:100%}
+body{font-family:'Segoe UI',-apple-system,Roboto,sans-serif;color:var(--ink);background:#fff;
+  display:flex;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none}
+
+/* ============================ HERO (left, connect stage) ============================ */
+.hero{flex:1;min-width:0;position:relative;overflow:hidden;
+  background:radial-gradient(110% 80% at 50% 0%,#0e2e1d 0%,#08180f 55%,#050f0a 100%);
+  display:flex;flex-direction:column;align-items:center;padding:16px 20px 22px}
+
+/* animated green network background (like the website) */
+.hero .art{position:absolute;inset:0;pointer-events:none;z-index:0}
+.hero .art canvas{width:100%;height:100%;display:block}
+
+.brand{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:3;
+  animation:brandGlow 3s ease-in-out infinite}
+.brand img{width:34px;height:34px;border-radius:9px}
+.brand b{font-size:19px;font-weight:800;letter-spacing:.01em;color:#f2fbf5}
+@keyframes brandGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(46,232,106,.35))}
+  50%{filter:drop-shadow(0 0 11px rgba(46,232,106,.7))}}
+.brand b span{color:var(--green)}
+.crown{position:absolute;top:15px;right:18px;font-size:17px;z-index:3}
+
+.stage{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:9px;width:100%}
+
+.power{position:relative;width:208px;height:208px;border:none;background:transparent;cursor:pointer;
+  display:grid;place-items:center}
+.ring{position:absolute;border-radius:50%}
+.ring.r1{inset:0;border:1.5px solid rgba(34,197,94,.15)}
+.ring.r2{inset:20px;border:1.5px solid rgba(34,197,94,.10)}
+.orb{width:150px;height:150px;border-radius:50%;display:grid;place-items:center;transition:.3s;
+  background:radial-gradient(circle at 50% 34%,#ffffff,#e9f7ef);
+  box-shadow:0 14px 34px rgba(20,120,60,.16),inset 0 2px 7px rgba(255,255,255,.9)}
+.orb .ic{width:56px;height:56px;color:#2eb765;transition:.25s}
+.orb .ic.stop{display:none}
+.power.on .orb{background:radial-gradient(circle at 50% 32%,#41e276,#0f9640);
+  box-shadow:0 0 0 10px rgba(34,197,94,.13),0 0 0 24px rgba(34,197,94,.06),0 18px 40px rgba(22,163,74,.4)}
+.power.on .orb .ic{color:#fff}
+.power.on .orb .ic.power{display:none}
+.power.on .orb .ic.stop{display:block}
+.power.busy .orb{animation:spin 1s linear infinite;background:conic-gradient(var(--green2),#e9f7ef,var(--green2))}
+.power.busy .orb .ic{opacity:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.timer{font-size:26px;font-weight:800;letter-spacing:.01em;font-variant-numeric:tabular-nums;margin-top:6px;color:#f0f8f3}
+.state{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}
+.state .dot{width:9px;height:9px;border-radius:50%;background:#c0ccc5}
+.state.on{color:var(--green)}.state.on .dot{background:var(--green2);box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+.state.off{color:#a8c2b5}.state.off .dot{background:#5f7d6b}
+.state.wait{color:#c98a00}.state.wait .dot{background:#c98a00}
+
+.ipline{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);min-height:16px}
+.ipline .flag{width:20px;height:14px;border-radius:3px;overflow:hidden;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.ipline .flag svg{width:100%;height:100%;display:block}
+.hint{font-size:11.5px;color:#93b3a3;min-height:14px;text-align:center}
+
+/* centered location pill (like UrbanVPN) */
+.pill{margin-top:6px;display:inline-flex;align-items:center;gap:11px;background:var(--card);
+  border:1px solid var(--line);border-radius:40px;padding:11px 20px 11px 14px;cursor:pointer;
+  box-shadow:0 10px 26px rgba(18,60,36,.12);transition:.15s}
+.pill:hover{box-shadow:0 12px 30px rgba(18,60,36,.18);transform:translateY(-1px)}
+.pill .flag{width:28px;height:20px;border-radius:5px;overflow:hidden;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.pill .flag svg{width:100%;height:100%;display:block}
+.pill .n{font-size:15px;font-weight:800;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.pill .chev{width:15px;height:15px;color:#9fb0a8;flex:none}
+
+/* ============================ RIGHT (locations) ============================ */
+.right{flex:0 0 288px;width:288px;display:flex;flex-direction:column;padding:18px 18px 14px;
+  border-left:1px solid var(--line);background:#fff}
+.search{display:flex;align-items:center;gap:8px;background:#f4f7f5;border:1px solid var(--line);
+  border-radius:12px;padding:10px 13px;flex:0 0 auto}
+.search svg{width:16px;height:16px;color:var(--muted);flex:none}
+.search input{border:none;background:transparent;outline:none;font-size:13.5px;flex:1;color:var(--ink);font-family:inherit}
+.section-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:15px 2px 6px}
+.recent{flex:0 0 auto}
+.all-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
+.scroll{flex:1;overflow-y:auto;margin-right:-8px;padding-right:8px}
+.scroll::-webkit-scrollbar{width:6px}
+.scroll::-webkit-scrollbar-thumb{background:#d5e4da;border-radius:3px}
+
+.row{display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:10px;cursor:pointer}
+.row:hover{background:#f4faf6}
+.row.sel{background:#e7f7ed}
+.row.flash{animation:flash 1s ease}
+@keyframes flash{0%,100%{background:transparent}30%{background:#e7f7ed}}
+.row .flag{width:24px;height:17px;border-radius:4px;overflow:hidden;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.row .flag svg{width:100%;height:100%;display:block}
+.row .txt{flex:1;min-width:0}
+.row .n{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .c{font-size:11px;color:var(--muted)}
+.badge{font-size:10px;font-weight:800;color:var(--green-d);background:#e7f7ed;border:1px solid #c9ebd6;
+  border-radius:20px;padding:3px 9px;flex:none}
+.lock{font-size:9.5px;font-weight:800;color:#c98a00;background:#fff5db;border:1px solid #ffe4a3;
+  border-radius:7px;padding:2px 7px;flex:none}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:14px;flex:none}
+.bars i{width:3px;background:#d5ded8;border-radius:2px}
+.bars i:nth-child(1){height:5px}.bars i:nth-child(2){height:8px}.bars i:nth-child(3){height:11px}.bars i:nth-child(4){height:14px}
+.bars.l1 i:nth-child(-n+1),.bars.l2 i:nth-child(-n+2),.bars.l3 i:nth-child(-n+3),.bars.l4 i:nth-child(-n+4){background:var(--green2)}
+.empty{font-size:12px;color:var(--muted);padding:10px 8px}
+
+/* ---- Pro / redeem footer ---- */
+.prowrap{flex:0 0 auto;border-top:1px solid var(--line);margin-top:10px;padding-top:12px}
+.buy-btn{width:100%;border:none;background:var(--green);color:#fff;font-weight:800;font-size:13.5px;
+  border-radius:11px;padding:12px;cursor:pointer;font-family:inherit;margin-bottom:8px;
+  box-shadow:0 8px 18px rgba(22,163,74,.28)}
+.buy-btn:hover{background:var(--green-d)}
+.pro-btn{width:100%;border:1px solid #c9ebd6;background:#eefaf1;color:var(--green-d);font-weight:800;
+  font-size:13px;border-radius:11px;padding:11px;cursor:pointer;font-family:inherit}
+.pro-btn:hover{background:#e3f6ea}
+.redeem-form{display:flex;gap:8px;margin-top:9px}
+.redeem-form input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  font-size:16px;letter-spacing:.16em;text-align:center;font-family:inherit;outline:none;color:var(--ink)}
+.redeem-form input:focus{border-color:var(--green2)}
+.redeem-form .apply{border:none;background:var(--green);color:#fff;font-weight:800;font-size:13px;
+  border-radius:10px;padding:0 16px;cursor:pointer;font-family:inherit}
+.redeem-form .apply:hover{background:var(--green-d)}
+.redeem-form .apply:disabled{opacity:.5;cursor:default}
+.pro-msg{font-size:11.5px;margin-top:7px;min-height:14px;text-align:center}
+.pro-msg.err{color:#d23f3f}.pro-msg.ok{color:var(--green-d)}
+.yc-label{font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.yc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#eefaf1;
+  border:1px dashed #a7dcb9;border-radius:11px;padding:10px 14px;cursor:pointer}
+.yc-row:hover{background:#e3f6ea}
+.yc-code{font-size:20px;font-weight:800;letter-spacing:.18em;color:var(--green-d)}
+.yc-dev{font-size:11px;color:var(--muted);font-weight:700}
+.pro-active{background:#eefaf1;border:1px solid #c9ebd6;border-radius:11px;padding:11px;text-align:center;
+  color:var(--green-d);font-weight:800;font-size:13px}
+
+/* ---- left icon rail ---- */
+.rail{flex:0 0 56px;width:56px;background:#08160f;border-right:1px solid #12321f;
+  display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;position:relative;z-index:4}
+.rail .nav{display:flex;flex-direction:column;gap:6px;flex:1;align-items:center}
+.rail .ni{width:40px;height:40px;border:none;background:transparent;border-radius:12px;display:grid;
+  place-items:center;cursor:pointer;color:#7fa38f;transition:.15s}
+.rail .ni:hover{background:#10281b;color:#eaf6ee}
+.rail .ni.active{background:var(--green);color:#fff;box-shadow:0 6px 14px rgba(22,163,74,.32)}
+.rail .ni svg{width:21px;height:21px}
+.rail .ver{font-size:10px;color:#5f7d6b;font-weight:800}
+
+/* ---- overlay sheet (settings / about) ---- */
+/* docked sidebar (slides in from the left, right next to the icon rail — NOT a centered popup) */
+.overlay{position:fixed;top:0;left:56px;right:0;bottom:0;background:transparent;z-index:20;
+  display:flex;align-items:stretch;justify-content:flex-start}
+.sheet{width:320px;max-width:92vw;height:100%;background:#fff;border-radius:0;
+  box-shadow:14px 0 34px rgba(10,40,25,.16);display:flex;flex-direction:column;
+  animation:sheetSlideIn .2s ease}
+@keyframes sheetSlideIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+.sheet-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+.sheet-head span{font-weight:800;font-size:15px}
+.sheet-head button{border:none;background:transparent;font-size:15px;color:var(--muted);cursor:pointer}
+.sheet-body{flex:1;min-height:0;padding:16px 18px;overflow-y:auto}
+.sheet-body::-webkit-scrollbar{width:6px}
+.sheet-body::-webkit-scrollbar-thumb{background:#d5e4da;border-radius:3px}
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
+.set-row span{color:var(--muted)}
+.set-btn{width:100%;margin-top:14px;border:1px solid #c9ebd6;background:#eefaf1;color:var(--green-d);
+  font-weight:800;font-size:13px;border-radius:11px;padding:11px;cursor:pointer;font-family:inherit}
+.set-btn:hover{background:#e3f6ea}
+.set-note{font-size:11.5px;color:var(--green-d);text-align:center;min-height:14px;margin-top:8px}
+.set-toggle{align-items:center}
+.switch{width:42px;height:24px;border-radius:20px;border:none;background:#d5ded8;position:relative;
+  cursor:pointer;transition:.2s;flex:none;padding:0}
+.switch span{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;
+  transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch.on{background:var(--green)}
+.switch.on span{left:21px}
+.set-row.action{cursor:pointer}
+.set-row.action:hover{background:#fafdfb}
+.set-row .chev-val{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12.5px;max-width:150px}
+.set-row .chev-val b{color:var(--muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-row .chev-val svg{flex:none;color:#9fb0a8}
+.sheet-body .section-label:first-child{margin-top:0}
+.sheet-body .scroll{overflow-y:auto}
+.sheet-body .row{padding:9px 8px}
+</style>
+</head>
+<body>
+  <div class="rail">
+    <div class="nav">
+      <button class="ni active" data-view="home" title="Home">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.4-3 7.4-7 9-4-1.6-7-4.6-7-9V6l7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="ni" data-view="settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l1.7-1.3-1.8-3.1-2 .8a7.6 7.6 0 0 0-1.7-1l-.3-2.1H9.7l-.3 2.1a7.6 7.6 0 0 0-1.7 1l-2-.8L3.9 9.7 5.6 11a7.6 7.6 0 0 0 0 2l-1.7 1.3 1.8 3.1 2-.8c.5.4 1.1.8 1.7 1l.3 2.1h3.6l.3-2.1c.6-.2 1.2-.6 1.7-1l2 .8 1.8-3.1L19.4 13Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="ni" data-view="about" title="About">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="ver">7.6.2</div>
+  </div>
+  <div class="hero">
+    <div class="art"><canvas id="net"></canvas></div>
+    <div class="brand"><img src="logo.png" alt=""><b>Green <span>VPN</span></b></div>
+    <div class="crown" id="crown"></div>
+
+    <div class="stage">
+      <button class="power" id="power">
+        <span class="ring r1"></span><span class="ring r2"></span>
+        <span class="orb">
+          <svg class="ic power" viewBox="0 0 24 24" fill="none"><path d="M12 3v9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M7.2 6.3a7 7 0 1 0 9.6 0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <svg class="ic stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5" fill="currentColor"/></svg>
+        </span>
+      </button>
+      <div class="timer" id="timer">00:00:00</div>
+      <div class="state off" id="state"><span class="dot"></span><span id="stateTxt">Not Connected</span></div>
+      <div class="ipline" id="ipline"><span class="mini" id="ipbox">—</span></div>
+      <div class="pill" id="locSel">
+        <span class="flag" id="selFlag"></span>
+        <span class="n" id="selName">Loading…</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="hint" id="hint">Tap the shield to connect</div>
+      <span id="selCity" style="display:none"></span>
+    </div>
+    <div class="credit" style="position:absolute;bottom:12px;left:0;right:0;text-align:center;color:#7d938a;font-size:11.5px;z-index:5">Design by <a href="https://www.facebook.com/profile.php?id=61565571592355" target="_blank" rel="noopener" style="color:#2ee6a0;text-decoration:none;font-weight:700">Oscar Mayo</a></div>
+  </div>
+
+  <div class="right">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="searchInput" placeholder="Search">
+    </div>
+    <div class="recent" id="recentWrap">
+      <div class="section-label">Recent locations</div>
+      <div id="recentList"></div>
+    </div>
+    <div class="all-wrap">
+      <div class="section-label">All locations</div>
+      <div class="scroll"><div id="list"></div></div>
+    </div>
+    <div class="prowrap" id="prowrap" style="display:none">
+      <div id="redeemBox">
+        <button class="buy-btn" id="buyPro">⭐ Get Green VPN Pro</button>
+        <button class="pro-btn" id="redeemToggle">🔑 Redeem Pro code</button>
+      </div>
+      <div id="yourCode" style="display:none">
+        <div class="yc-label">Your Pro code · tap to copy</div>
+        <div class="yc-row" id="ycCopy"><span class="yc-code" id="ycCode">------</span><span class="yc-dev" id="ycDev"></span></div>
+        <button class="pro-btn" id="changeCodeBtn1" style="margin-top:8px">🔄 Change / redeem another code</button>
+      </div>
+      <div id="proActive" style="display:none">
+        <div class="pro-active">✓ Green VPN Pro active on this device</div>
+        <button class="pro-btn" id="changeCodeBtn2" style="margin-top:8px">🔄 Change / redeem another code</button>
+      </div>
+      <!-- shared redeem form: reused by "Redeem Pro code" (not-Pro) AND "Change / redeem another code" (Pro) -->
+      <div class="redeem-form" id="redeemForm" style="display:none">
+        <input id="codeInput" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="off">
+        <button class="apply" id="applyBtn">Apply</button>
+      </div>
+      <div class="pro-msg" id="proMsg"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" style="display:none">
+    <div class="sheet">
+      <div class="sheet-head"><span id="sheetTitle">Settings</span><button id="sheetClose">✕</button></div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+  </div>
+
+<script>
+const FLAGS={
+ de:'<svg viewBox="0 0 5 3"><rect width="5" height="3" fill="#FFCE00"/><rect width="5" height="2" fill="#D00"/><rect width="5" height="1"/></svg>',
+ sg:'<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#fff"/><rect width="12" height="4" fill="#EF3340"/><circle cx="2.8" cy="2" r="1.4" fill="#fff"/><circle cx="3.5" cy="2" r="1.15" fill="#EF3340"/></svg>',
+ us:'<svg viewBox="0 0 7 4"><rect width="7" height="4" fill="#fff"/><g fill="#B22234"><rect width="7" height=".4"/><rect width="7" height=".4" y=".8"/><rect width="7" height=".4" y="1.6"/><rect width="7" height=".4" y="2.4"/><rect width="7" height=".4" y="3.2"/></g><rect width="3" height="2.2" fill="#3C3B6E"/></svg>',
+ gb:'<svg viewBox="0 0 60 30"><rect width="60" height="30" fill="#012169"/><path d="M0,0 60,30M60,0 0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 60,30M60,0 0,30" stroke="#C8102E" stroke-width="3"/><path d="M30,0V30M0,15H60" stroke="#fff" stroke-width="10"/><path d="M30,0V30M0,15H60" stroke="#C8102E" stroke-width="6"/></svg>',
+ fr:'<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg>',
+ nl:'<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#21468B"/><rect width="3" height="1.33" fill="#fff"/><rect width="3" height=".667" fill="#AE1C28"/></svg>',
+ it:'<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#009246"/><rect x="2" width="1" height="2" fill="#CE2B37"/></svg>',
+ es:'<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#AA151B"/><rect width="3" height="1" y=".5" fill="#F1BF00"/></svg>',
+ ca:'<svg viewBox="0 0 24 12"><rect width="24" height="12" fill="#fff"/><rect width="6" height="12" fill="#D52B1E"/><rect x="18" width="6" height="12" fill="#D52B1E"/><path d="M12 2.5l1 2.2 2.4-.5-1.4 1.9 1.4 1.2-2.2.3.2 2.4L12 8.9l-1.4 1.1.2-2.4-2.2-.3 1.4-1.2L8.6 4.2 11 4.7z" fill="#D52B1E"/></svg>',
+ au:'<svg viewBox="0 0 24 12"><rect width="24" height="12" fill="#00247D"/><path d="M0,0 12,6M12,0 0,6" stroke="#fff" stroke-width="1.4"/><path d="M6,0V6M0,3H12" stroke="#fff" stroke-width="2"/><path d="M6,0V6M0,3H12" stroke="#CF142B" stroke-width="1"/></svg>',
+ jp:'<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><circle cx="1.5" cy="1" r=".6" fill="#BC002D"/></svg>',
+ br:'<svg viewBox="0 0 14 10"><rect width="14" height="10" fill="#009C3B"/><path d="M7 1.2 12.8 5 7 8.8 1.2 5Z" fill="#FFDF00"/><circle cx="7" cy="5" r="1.9" fill="#002776"/></svg>',
+ in:'<svg viewBox="0 0 9 6"><rect width="9" height="6" fill="#fff"/><rect width="9" height="2" fill="#F93"/><rect width="9" height="2" y="4" fill="#138808"/><circle cx="4.5" cy="3" r=".85" fill="none" stroke="#008" stroke-width=".18"/></svg>',
+ ae:'<svg viewBox="0 0 12 6"><rect width="12" height="2" fill="#00732F"/><rect width="12" height="2" y="2" fill="#fff"/><rect width="12" height="2" y="4" fill="#000"/><rect width="3" height="6" fill="#FF0000"/></svg>',
+ ch:'<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#D52B1E"/><rect x="13" y="6" width="6" height="20" fill="#fff"/><rect x="6" y="13" width="20" height="6" fill="#fff"/></svg>',
+ hk:'<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#DE2910"/><circle cx="6" cy="4" r="2" fill="#fff"/><circle cx="6" cy="4" r="1.1" fill="#DE2910"/></svg>',
+ id:'<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="3" height="1" fill="#CE1126"/></svg>',
+ kr:'<svg viewBox="0 0 36 24"><rect width="36" height="24" fill="#fff"/><circle cx="18" cy="12" r="5" fill="#CD2E3A"/><path d="M13 12a5 5 0 0 1 10 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 0-5 0Z" fill="#0047A0"/></svg>',
+ my:'<svg viewBox="0 0 28 14"><rect width="28" height="14" fill="#fff"/><g fill="#CC0001"><rect width="28" height="1"/><rect width="28" height="1" y="2"/><rect width="28" height="1" y="4"/><rect width="28" height="1" y="6"/><rect width="28" height="1" y="8"/><rect width="28" height="1" y="10"/><rect width="28" height="1" y="12"/></g><rect width="14" height="8" fill="#010066"/><circle cx="5" cy="4" r="2" fill="#FC0"/><circle cx="5.8" cy="4" r="1.6" fill="#010066"/></svg>',
+ no:'<svg viewBox="0 0 22 16"><rect width="22" height="16" fill="#BA0C2F"/><rect x="6" width="4" height="16" fill="#fff"/><rect y="6" width="22" height="4" fill="#fff"/><rect x="7" width="2" height="16" fill="#00205B"/><rect y="7" width="22" height="2" fill="#00205B"/></svg>',
+ nz:'<svg viewBox="0 0 24 12"><rect width="24" height="12" fill="#00247D"/><path d="M0,0 12,6M12,0 0,6" stroke="#fff" stroke-width="1.4"/><path d="M6,0V6M0,3H12" stroke="#fff" stroke-width="2"/><path d="M6,0V6M0,3H12" stroke="#CC142B" stroke-width="1"/><circle cx="19" cy="4" r=".7" fill="#CC142B"/><circle cx="21" cy="7" r=".7" fill="#CC142B"/><circle cx="17" cy="8" r=".7" fill="#CC142B"/></svg>',
+ ph:'<svg viewBox="0 0 12 6"><rect width="12" height="3" fill="#0038A8"/><rect width="12" height="3" y="3" fill="#CE1126"/><path d="M0 0 5 3 0 6Z" fill="#fff"/><circle cx="1.4" cy="3" r=".7" fill="#FCD116"/></svg>',
+ pk:'<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#01411C"/><rect width="3" height="8" fill="#fff"/><circle cx="7.5" cy="4" r="2" fill="#fff"/><circle cx="8.2" cy="4" r="1.6" fill="#01411C"/></svg>',
+ pl:'<svg viewBox="0 0 8 5"><rect width="8" height="5" fill="#DC143C"/><rect width="8" height="2.5" fill="#fff"/></svg>',
+ pt:'<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#DA291C"/><rect width="5" height="8" fill="#046A38"/><circle cx="5" cy="4" r="1.3" fill="#FFE900"/><circle cx="5" cy="4" r=".7" fill="#DA291C"/></svg>',
+ sa:'<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#006C35"/><rect x="2" y="5" width="8" height=".6" fill="#fff"/><rect x="3" y="2.6" width="6" height=".9" rx=".2" fill="#fff"/></svg>',
+ se:'<svg viewBox="0 0 16 10"><rect width="16" height="10" fill="#006AA7"/><rect x="5" width="2" height="10" fill="#FECC00"/><rect y="4" width="16" height="2" fill="#FECC00"/></svg>',
+ tr:'<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#E30A17"/><circle cx="5" cy="4" r="2" fill="#fff"/><circle cx="5.6" cy="4" r="1.6" fill="#E30A17"/><path d="M7.2 4 8.5 3.6 7.7 4.7 7.8 3.4 8.6 4.4Z" fill="#fff"/></svg>',
+ auto:'<svg viewBox="0 0 22 15"><rect width="22" height="15" rx="2" fill="#12331f"/><path d="M12 2 7 8.5h3l-1 4.5 6-7.5h-3.2z" fill="#2FE84A"/></svg>'
+};
+function flag(s){var cc=(s&&typeof s==='object')?s.cc:s;var svg=(s&&typeof s==='object')?s.flagsvg:null;return svg||FLAGS[cc]||('<span style="font:700 8px Segoe UI;color:#9fb0a8">'+(cc||'').toUpperCase()+'</span>');}
+function bars(m){var l=m>=150?4:m>=60?3:m>=20?2:1;return '<span class="bars l'+l+'"><i></i><i></i><i></i><i></i></span>';}
+
+let DATA=null,SEL=null,CONNECTED=false,BUSY=false,CONN_AT=0,tmr=null;
+const $=id=>document.getElementById(id);
+
+// ---- recent-locations memory (localStorage, up to 3, most-recent first) ----
+function loadRecentIds(){try{return JSON.parse(localStorage.getItem("gvpn_recent")||"[]");}catch(e){return [];}}
+function pushRecent(id){
+  let r=loadRecentIds().filter(x=>x!==id);
+  r.unshift(id); r=r.slice(0,3);
+  localStorage.setItem("gvpn_recent",JSON.stringify(r));
+}
+
+function rowHtml(s,opts){
+  opts=opts||{};
+  const locked=s.pro&&!DATA.pro;
+  const right = opts.showSelected && SEL && s.id===SEL.id ? '<span class="badge">Selected</span>'
+    : locked ? '<span class="lock">PRO</span>' : bars(s.mbps||120);
+  return '<span class="flag">'+flag(s)+'</span><span class="txt"><div class="n">'+s.name+'</div>'+
+    (s.city?'<div class="c">'+s.city+'</div>':'')+'</span>'+right;
+}
+function bindRow(el,s){
+  el.onclick=()=>connectTo(s);       // click a location = connect (or switch) right away
+}
+
+function renderRecent(){
+  const wrap=$("recentWrap"),box=$("recentList");
+  const ids=loadRecentIds();
+  let items=ids.map(id=>DATA.servers.find(s=>s.id===id)).filter(Boolean);
+  if(!items.length && SEL) items=[SEL];
+  if(!items.length){wrap.style.display="none";return;}
+  wrap.style.display="";
+  box.innerHTML="";
+  items.forEach(s=>{
+    const r=document.createElement("div");
+    r.className="row"+(SEL&&s.id===SEL.id?" sel":"");
+    r.dataset.id=s.id;
+    r.innerHTML=rowHtml(s,{showSelected:true});
+    bindRow(r,s);
+    box.appendChild(r);
+  });
+}
+
+function renderList(filter){
+  const box=$("list");
+  const q=(filter||"").trim().toLowerCase();
+  const items=DATA.servers.filter(s=>!q || s.name.toLowerCase().includes(q) || (s.city||"").toLowerCase().includes(q));
+  box.innerHTML="";
+  if(!items.length){box.innerHTML='<div class="empty">No locations match "'+filter+'"</div>';return;}
+  items.forEach(s=>{
+    const r=document.createElement("div");
+    r.className="row"+(SEL&&s.id===SEL.id?" sel":"");
+    r.dataset.id=s.id;
+    r.innerHTML=rowHtml(s,{showSelected:false});
+    bindRow(r,s);
+    box.appendChild(r);
+  });
+}
+
+function paintSel(){
+  if(!SEL)return;
+  $("selFlag").innerHTML=flag(SEL);
+  $("selName").textContent=SEL.name;
+  $("selCity").textContent=SEL.city||"";
+}
+
+$("locSel").onclick=()=>{
+  if(!SEL)return;
+  $("searchInput").value=""; $("recentWrap").style.display=""; renderList("");
+  const row=$("list").querySelector('[data-id="'+SEL.id+'"]');
+  if(row){row.scrollIntoView({block:"center"});row.classList.add("flash");setTimeout(()=>row.classList.remove("flash"),1000);}
+};
+$("searchInput").oninput=e=>{
+  const q=e.target.value;
+  $("recentWrap").style.display=q?"none":"";
+  renderList(q);
+};
+
+function setState(cls,txt){$("state").className="state "+cls;$("stateTxt").textContent=txt;}
+function fmt(s){s=Math.max(0,s|0);return String(s/3600|0).padStart(2,"0")+":"+String(s%3600/60|0).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+function startTimer(){stopTimer();tmr=setInterval(()=>{$("timer").textContent=fmt((Date.now()/1000|0)-CONN_AT);},1000);}
+function stopTimer(){if(tmr)clearInterval(tmr);tmr=null;$("timer").textContent="00:00:00";}
+
+function showIp(txt){
+  const flg = CONNECTED && SEL ? '<span class="flag">'+flag(SEL)+'</span>' : '';
+  $("ipline").innerHTML = flg + '<span class="mini" id="ipbox">'+(txt||'—')+'</span>';
+}
+
+async function boot(){
+  window.pywebview.api.info().then(i=>{APPINFO=i;const v=document.querySelector('.rail .ver');if(v&&i&&i.version)v.textContent=i.version;});
+  SETTINGS=await window.pywebview.api.settings();
+  const d=await window.pywebview.api.servers();
+  if(!d.ok){
+    setState("off","No connection");showIp("offline");
+    // surface the actual error (timeout / DNS / SSL / etc.) instead of a silent retry loop,
+    // so a network-specific failure (e.g. a mobile carrier interfering with this domain)
+    // is diagnosable from the app itself, not just "No connection".
+    $("hint").textContent = d.error ? ("Retrying… (" + d.error + ")") : "Retrying…";
+    setTimeout(boot,3000);return;
+  }
+  DATA=d;$("crown").textContent=d.pro?"👑":"";
+  if(SETTINGS.default_location){const dl=d.servers.find(x=>x.id===SETTINGS.default_location);if(dl)SEL=dl;}
+  if(!SEL&&d.servers.length)SEL=d.servers[0];
+  paintSel();renderRecent();renderList("");renderPro();
+  const s=await window.pywebview.api.status();
+  if(s.connected){CONNECTED=true;CONN_AT=s.since;onConn();}
+  else if(SETTINGS.auto_connect && SEL && !(SEL.pro&&!DATA.pro)){
+    setTimeout(()=>{if(!CONNECTED&&!BUSY)toggle();},500);
+  }
+}
+function onConn(){
+  $("power").classList.add("on");setState("on","Connected");$("hint").textContent="Tap the shield to disconnect";
+  startTimer();
+  window.pywebview.api.exit_ip().then(ip=>{showIp(ip||"secured");});
+}
+function onDisc(){
+  $("power").classList.remove("on");setState("off","Not Connected");$("hint").textContent="Tap the shield to connect";
+  showIp("—");stopTimer();
+}
+async function toggle(){
+  if(BUSY||!SEL)return;
+  if(CONNECTED){
+    BUSY=true;$("power").classList.add("busy");setState("wait","Disconnecting…");
+    await window.pywebview.api.disconnect();CONNECTED=false;CONN_AT=0;$("power").classList.remove("busy");onDisc();BUSY=false;
+  }else{
+    if(SEL.pro&&!DATA.pro){$("hint").textContent="🔒 Redeem a Pro code to unlock";return;}
+    BUSY=true;$("power").classList.add("busy");setState("wait","Connecting…");$("hint").textContent="Securing your connection…";
+    const r=await window.pywebview.api.connect(SEL.id);$("power").classList.remove("busy");
+    if(r.ok){CONNECTED=true;CONN_AT=Math.floor(Date.now()/1000);pushRecent(SEL.id);renderRecent();onConn();}
+    else{setState("off","Not Connected");$("hint").textContent=(r.error||"Connect failed");}
+    BUSY=false;
+  }
+}
+$("power").onclick=toggle;
+
+// ---- left rail: Home / Settings / About ----
+let APPINFO=null, SETTINGS=null;
+const CHEV='<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function settingsHtml(){
+  const iid=((APPINFO&&APPINFO.iid)||'').slice(0,8);
+  const ver=(APPINFO&&APPINFO.version)||'1.0';
+  const ks=(APPINFO&&APPINFO.killswitch)?'on':'';
+  const S=SETTINGS||{};
+  const sw=on=>on?'on':'';
+  const defLoc=DATA&&DATA.servers.find(s=>s.id===S.default_location);
+  const nBypass=(S.bypass_apps||[]).length;
+  return ''+
+    '<div class="section-label">Connectivity</div>'+
+    '<div class="set-row action" id="rowDefaultLoc"><div><div style="font-weight:700;color:var(--ink)">Default location</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Used when Auto-connect starts the VPN</div></div>'+
+      '<span class="chev-val"><b>'+(defLoc?defLoc.name:'Last used')+'</b>'+CHEV+'</span></div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">Auto-connect</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Connect automatically when the app opens</div></div>'+
+      '<button class="switch '+sw(S.auto_connect)+'" data-key="auto_connect"><span></span></button></div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">CleanWeb</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Blocks ads &amp; trackers when connected</div></div>'+
+      '<button class="switch '+sw(S.cleanweb)+'" data-key="cleanweb"><span></span></button></div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">Kill switch</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Cuts the internet if the VPN drops or is off</div></div>'+
+      '<button class="switch '+ks+'" id="ksSwitch"><span></span></button></div>'+
+    '<div class="set-row action" id="rowNetSettings"><div><div style="font-weight:700;color:var(--ink)">Windows network settings</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Always-on VPN / block connections without VPN</div></div>'+CHEV+'</div>'+
+    '<div class="set-row action" id="rowProtocol"><div><div style="font-weight:700;color:var(--ink)">Protocol</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Automatic (secure proxy tunnel)</div></div></div>'+
+    '<div class="set-row action" id="rowBypasser"><div><div style="font-weight:700;color:var(--ink)">Bypasser</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Choose apps that skip the VPN</div></div>'+
+      '<span class="chev-val">'+(nBypass?('<b>'+nBypass+'</b>'):'')+CHEV+'</span></div>'+
+
+    '<div class="section-label">Content</div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">Web content blocker</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Blocks adult &amp; gambling sites</div></div>'+
+      '<button class="switch '+sw(S.webblock)+'" data-key="webblock"><span></span></button></div>'+
+
+    '<div class="section-label">Advanced</div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">Discover on LAN</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Keep local network devices reachable</div></div>'+
+      '<button class="switch '+sw(S.discover_lan)+'" data-key="discover_lan"><span></span></button></div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">Use small packets</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Better compatibility with some routers</div></div>'+
+      '<button class="switch '+sw(S.small_packets)+'" data-key="small_packets"><span></span></button></div>'+
+    '<div class="set-row set-toggle"><div><div style="font-weight:700;color:var(--ink)">Use rotating IP</div>'+
+      '<div style="font-size:11px;color:var(--muted)">Automatically changes your IP every few minutes</div></div>'+
+      '<button class="switch '+sw(S.rotate_ip)+'" data-key="rotate_ip"><span></span></button></div>'+
+
+    '<div class="section-label">Account</div>'+
+    '<div class="set-row"><span>Version</span><b>'+ver+'</b></div>'+
+    '<div class="set-row"><span>Device ID</span><b>'+iid+'…</b></div>'+
+    '<div class="set-row action" id="rowPrivacy"><div style="font-weight:700;color:var(--ink)">Privacy Policy</div>'+CHEV+'</div>'+
+    '<button class="set-btn" id="fixProxy">Fix internet · clear system proxy</button>'+
+    '<div class="set-note" id="setNote"></div>';
+}
+function aboutHtml(){
+  const ver=(APPINFO&&APPINFO.version)||'1.0';
+  return '<div style="text-align:center;padding:6px 0">'+
+    '<img src="logo.png" style="width:56px;height:56px;border-radius:14px">'+
+    '<div style="font-weight:800;font-size:17px;margin:10px 0 3px">Green VPN</div>'+
+    '<div style="color:var(--muted);font-size:13px">Fast, secure, private VPN.</div>'+
+    '<div style="color:var(--muted);font-size:12px;margin-top:10px">Version '+ver+' · green-vpn.app</div></div>';
+}
+function defaultLocHtml(){
+  if(!DATA) return '<div class="empty">Loading…</div>';
+  const rows=DATA.servers.map(s=>{
+    const sel=SETTINGS&&SETTINGS.default_location===s.id;
+    return '<div class="row'+(sel?' sel':'')+'" data-id="'+s.id+'">'+
+      '<span class="flag">'+flag(s)+'</span><span class="txt"><div class="n">'+s.name+'</div>'+
+      (s.city?'<div class="c">'+s.city+'</div>':'')+'</span>'+(sel?'<span class="badge">Default</span>':'')+'</div>';
+  }).join('');
+  return '<div class="set-note" style="margin:0 0 10px;color:var(--muted)">Used when Auto-connect starts the VPN.</div>'+
+    '<div class="scroll" style="max-height:320px">'+rows+'</div>';
+}
+function openDefaultLocationPicker(){
+  $("sheetTitle").textContent="Default location";
+  $("sheetBody").innerHTML=defaultLocHtml();
+  $("sheetBody").querySelectorAll(".row").forEach(r=>{
+    r.onclick=async()=>{
+      SETTINGS.default_location=r.dataset.id;
+      await window.pywebview.api.set_setting("default_location", r.dataset.id);
+      openView("settings");
+    };
+  });
+}
+async function openBypasser(){
+  $("sheetTitle").textContent="Bypasser";
+  $("sheetBody").innerHTML='<div class="set-note" style="color:var(--muted)">Loading apps…</div>';
+  const r=await window.pywebview.api.list_processes();
+  const sel=new Set(r.selected||[]);
+  const rows=(r.processes||[]).map(name=>{
+    const on=sel.has(name);
+    return '<div class="set-row set-toggle"><div style="font-weight:600;color:var(--ink);font-size:13px;'+
+      'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px">'+name+'</div>'+
+      '<button class="switch '+(on?'on':'')+'" data-proc="'+name+'"><span></span></button></div>';
+  }).join('');
+  $("sheetBody").innerHTML=
+    '<div class="set-note" style="margin:0 0 10px;color:var(--muted)">Selected apps skip the VPN and use your real connection. Applies on next reconnect.</div>'+
+    '<div class="scroll" style="max-height:300px">'+(rows||'<div class="empty">No apps found</div>')+'</div>';
+  $("sheetBody").querySelectorAll(".switch[data-proc]").forEach(sw=>{
+    sw.onclick=async()=>{
+      const name=sw.dataset.proc,on=!sw.classList.contains('on');
+      sw.classList.toggle('on',on);
+      await window.pywebview.api.toggle_bypass(name,on);
+    };
+  });
+}
+function wireSettings(){
+  const b=$("fixProxy");
+  if(b) b.onclick=async()=>{const n=$("setNote");n.textContent="Clearing…";await window.pywebview.api.clear_proxy();n.textContent="Done ✓ — internet restored";};
+  const ks=$("ksSwitch");
+  if(ks) ks.onclick=async()=>{
+    const on=!ks.classList.contains('on');
+    ks.classList.toggle('on',on);
+    const r=await window.pywebview.api.set_killswitch(on);
+    if(APPINFO) APPINFO.killswitch=!!(r&&r.on);
+    $("setNote").textContent = on ? (CONNECTED?"Kill switch ON":"Kill switch ON — browsers blocked until you connect") : "Kill switch OFF";
+    if(!CONNECTED) $("hint").textContent = on ? "🔒 Kill switch on — connect to browse" : "Tap the shield to connect";
+  };
+  document.querySelectorAll('#sheetBody .switch[data-key]').forEach(sw=>{
+    sw.onclick=async()=>{
+      const key=sw.dataset.key,on=!sw.classList.contains('on');
+      sw.classList.toggle('on',on);
+      SETTINGS[key]=on;
+      await window.pywebview.api.set_setting(key,on);
+      $("setNote").textContent = CONNECTED ? "Reconnect to apply" : "";
+    };
+  });
+  const rp=$("rowPrivacy"); if(rp) rp.onclick=()=>window.pywebview.api.open_privacy();
+  const rn=$("rowNetSettings"); if(rn) rn.onclick=()=>window.pywebview.api.open_network_settings();
+  const rproto=$("rowProtocol"); if(rproto) rproto.onclick=()=>{
+    $("setNote").textContent="Green VPN uses an encrypted proxy tunnel, chosen automatically for the best speed and stability.";
+  };
+  const rdl=$("rowDefaultLoc"); if(rdl) rdl.onclick=openDefaultLocationPicker;
+  const rb=$("rowBypasser"); if(rb) rb.onclick=openBypasser;
+}
+async function openView(v){
+  document.querySelectorAll('.rail .ni').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  if(v==='home'){$("overlay").style.display="none";return;}
+  const titles={settings:'Settings',about:'About'};
+  $("sheetTitle").textContent=titles[v]||'';
+  if(v==='settings' && !SETTINGS) SETTINGS=await window.pywebview.api.settings();
+  $("sheetBody").innerHTML = v==='settings'?settingsHtml() : aboutHtml();
+  $("overlay").style.display="flex";
+  if(v==='settings')wireSettings();
+}
+document.querySelectorAll('.rail .ni').forEach(b=>b.onclick=()=>openView(b.dataset.view));
+$("sheetClose").onclick=()=>openView('home');
+$("overlay").onclick=e=>{if(e.target===$("overlay"))openView('home');};
+
+// ---- click a location -> connect / switch immediately ----
+async function connectTo(s){
+  if(s.pro && !DATA.pro){$("hint").textContent="🔒 Redeem a Pro code to unlock";return;}
+  const already = CONNECTED && SEL && SEL.id===s.id;   // already on this exact location
+  SEL=s; pushRecent(s.id); paintSel(); renderRecent(); renderList($("searchInput").value);
+  if(BUSY || already) return;
+  BUSY=true;$("power").classList.add("busy");
+  setState("wait", CONNECTED?"Switching…":"Connecting…");$("hint").textContent="Securing your connection…";
+  const r=await window.pywebview.api.connect(s.id);
+  $("power").classList.remove("busy");
+  if(r.ok){CONNECTED=true;CONN_AT=Math.floor(Date.now()/1000);onConn();}
+  else{CONNECTED=false;CONN_AT=0;onDisc();$("hint").textContent=(r.error||"Connect failed");}
+  BUSY=false;
+}
+
+// ---- Pro / redeem-code footer ----
+function renderPro(){
+  const wrap=$("prowrap"),rb=$("redeemBox"),yc=$("yourCode"),pa=$("proActive");
+  if(DATA && DATA.pro && DATA.mycode){          // Pro + owns a code -> show shareable code
+    wrap.style.display="";rb.style.display="none";yc.style.display="";pa.style.display="none";
+    $("ycCode").textContent=DATA.mycode;
+    const u=DATA.mycode_used,m=DATA.mycode_max;
+    $("ycDev").textContent=(u!=null&&m!=null)?(u+"/"+m+" devices"):"";
+  }else if(DATA && DATA.pro){                    // Pro via a redeemed code -> confirm active
+    wrap.style.display="";rb.style.display="none";yc.style.display="none";pa.style.display="";
+  }else if(DATA){                                // Not Pro -> paywall / redeem input
+    wrap.style.display="";rb.style.display="";yc.style.display="none";pa.style.display="none";
+  }else{
+    wrap.style.display="none";
+  }
+}
+async function applyCode(){
+  const code=$("codeInput").value.replace(/\D/g,"");
+  const msg=$("proMsg");
+  if(code.length!==6){msg.className="pro-msg err";msg.textContent="Enter a 6-digit code";return;}
+  $("applyBtn").disabled=true;msg.className="pro-msg";msg.textContent="Checking…";
+  const r=await window.pywebview.api.redeem(code);
+  $("applyBtn").disabled=false;
+  if(r.ok && r.pro){
+    DATA.pro=true;DATA.mycode=r.mycode;DATA.mycode_used=r.mycode_used;DATA.mycode_max=r.mycode_max;
+    DATA.servers.forEach(s=>s.pro=false);   // unlock every location
+    $("crown").textContent="👑";
+    msg.className="pro-msg ok";msg.textContent="Pro unlocked ✓";
+    renderRecent();renderList($("searchInput").value);renderPro();
+    $("redeemForm").style.display="none";
+  }else{
+    msg.className="pro-msg err";msg.textContent=r.error||"Invalid code";
+  }
+}
+$("buyPro").onclick=async()=>{
+  const m=$("proMsg");m.className="pro-msg";m.textContent="Opening secure checkout in your browser…";
+  await window.pywebview.api.buy();
+};
+function toggleRedeemForm(){
+  const f=$("redeemForm"),show=f.style.display==="none";
+  f.style.display=show?"flex":"none";
+  $("proMsg").textContent="";
+  if(show)$("codeInput").focus();
+}
+$("redeemToggle").onclick=toggleRedeemForm;
+$("changeCodeBtn1").onclick=toggleRedeemForm;   // "Change / redeem another code" (Pro + owns a share code)
+$("changeCodeBtn2").onclick=toggleRedeemForm;   // "Change / redeem another code" (Pro via a redeemed code)
+$("codeInput").oninput=e=>{e.target.value=e.target.value.replace(/\D/g,"").slice(0,6);};
+$("codeInput").onkeydown=e=>{if(e.key==="Enter")applyCode();};
+$("applyBtn").onclick=applyCode;
+$("ycCopy").onclick=()=>{
+  const code=$("ycCode").textContent,d=$("ycDev"),old=d.textContent;
+  const done=()=>{d.textContent="Copied!";setTimeout(()=>{d.textContent=old;},1200);};
+  try{navigator.clipboard.writeText(code).then(done,done);}catch(e){done();}
+};
+
+// ---- live Pro re-check: reflects a revoke/block within ~20s (locks + disconnects) ----
+async function pollPro(){
+  if(!DATA) return;
+  try{
+    const r=await window.pywebview.api.pro_check();
+    let changed=false;
+    if(r.pro!==DATA.pro){
+      DATA.pro=r.pro; DATA.servers.forEach(s=>s.pro=!r.pro);
+      $("crown").textContent=r.pro?"👑":"";
+      if(!r.pro){
+        if(CONNECTED){await window.pywebview.api.disconnect();CONNECTED=false;CONN_AT=0;onDisc();}
+        $("hint").textContent="🔒 Pro ended — redeem a code to continue";
+      }
+      changed=true;
+    }
+    if(r.pro && (DATA.mycode!==r.mycode || DATA.mycode_used!==r.mycode_used)){
+      DATA.mycode=r.mycode; DATA.mycode_used=r.mycode_used; DATA.mycode_max=r.mycode_max; changed=true;
+    }
+    if(changed){renderRecent();renderList($("searchInput").value);renderPro();}
+  }catch(e){}
+}
+setInterval(pollPro,20000);
+
+// ---- kill-switch status reflect (every 5s while connected) ----
+async function statusPoll(){
+  if(!CONNECTED) return;
+  try{
+    const s=await window.pywebview.api.status();
+    if(!CONNECTED) return;
+    if(s.blocked){setState("wait","Kill switch — blocked");$("hint").textContent="Connection lost — internet blocked (reconnecting…)";}
+    else{setState("on","Connected");$("hint").textContent="Tap the shield to disconnect";}
+    if(s.loc && DATA && (!SEL || SEL.id!==s.loc)){        // "Use rotating IP" hopped location server-side
+      const ns=DATA.servers.find(x=>x.id===s.loc);
+      if(ns){
+        SEL=ns;CONN_AT=s.since;paintSel();renderRecent();renderList($("searchInput").value);
+        window.pywebview.api.exit_ip().then(ip=>{showIp(ip||"secured");});
+        $("hint").textContent="IP rotated for privacy";
+      }
+    }
+  }catch(e){}
+}
+setInterval(statusPoll,5000);
+
+// ---- animated green network background (website style) ----
+(function(){
+  const cv=document.getElementById('net'); if(!cv) return;
+  const cx=cv.getContext('2d'); let W=0,H=0,pts=[];
+  function init(){
+    W=cv.width=cv.offsetWidth; H=cv.height=cv.offsetHeight;
+    const n=Math.max(16,Math.round(W*H/14000)); pts=[];
+    for(let i=0;i<n;i++) pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28});
+  }
+  function frame(){
+    cx.clearRect(0,0,W,H);
+    for(const p of pts){p.x+=p.vx;p.y+=p.vy; if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;}
+    for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+      const a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+      if(d<125){cx.strokeStyle='rgba(46,232,106,'+(0.18*(1-d/125))+')';cx.lineWidth=1;cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke();}
+    }
+    for(const p of pts){cx.fillStyle='rgba(74,231,128,.75)';cx.beginPath();cx.arc(p.x,p.y,1.8,0,6.3);cx.fill();}
+    requestAnimationFrame(frame);
+  }
+  init(); frame(); window.addEventListener('resize',init);
+})();
+
+window.addEventListener("pywebviewready",boot);
+</script>
+</body>
+</html>

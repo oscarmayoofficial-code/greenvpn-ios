@@ -1,0 +1,35 @@
+# Green VPN for macOS — Electron + sing-box (TUN, full-tunnel), built on a cloud
+# Mac because a .dmg can only be produced on macOS. Direct-download distribution
+# (green-vpn.app), NOT the Mac App Store — the App Store sandbox forbids the
+# root-level TUN engine and it would also go through the same App Review that
+# rejected the iOS app three times. Unsigned for now: users right-click > Open
+# once (Gatekeeper). Add a Developer ID cert + notarization later for a clean
+# first launch.
+workflows:
+  mac-dmg:
+    name: Green VPN macOS dmg
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      node: 20
+    scripts:
+      - name: Install deps
+        script: npm ci --no-audit --no-fund
+      - name: Fetch sing-box engines (arm64 + x64)
+        script: |
+          V=$(cat sing-box-mac/VERSION)
+          for a in arm64 amd64; do
+            d=$([ "$a" = arm64 ] && echo arm64 || echo x64)
+            curl -sL "https://github.com/SagerNet/sing-box/releases/download/v$V/sing-box-$V-darwin-$a.tar.gz" | tar -xz -C /tmp
+            cp "/tmp/sing-box-$V-darwin-$a/sing-box" "sing-box-mac/$d/sing-box"
+            chmod +x "sing-box-mac/$d/sing-box"
+          done
+          ls -la sing-box-mac/*/sing-box
+      - name: Build universal dmg
+        script: |
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          npx electron-builder --mac --universal --publish never
+          ls -la dist/*.dmg
+    artifacts:
+      - dist/*.dmg
+      - dist/*.zip

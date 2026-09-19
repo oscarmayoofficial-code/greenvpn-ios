@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+sing-box/wintun.dll
+*.log
+sing-box/sing-box.exe
+sing-box-mac/*/sing-box
+app/
+*.spec
+__pycache__/

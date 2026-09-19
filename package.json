@@ -1,0 +1,85 @@
+{
+  "name": "green-vpn",
+  "productName": "Green VPN",
+  "version": "2.1.0",
+  "description": "Green VPN \u2014 fast, secure VPN for Windows and macOS",
+  "main": "main.js",
+  "author": "Green VPN",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac --universal"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.greenhole.greenvpn",
+    "productName": "Green VPN",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "ui/icon.ico",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Green VPN"
+    },
+    "extraResources": [
+      {
+        "from": "sing-box",
+        "to": "sing-box"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "ui/**"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build-mac/icon.icns",
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null,
+      "extendInfo": {
+        "LSUIElement": false
+      },
+      "extraResources": [
+        {
+          "from": "sing-box-mac",
+          "to": "sing-box-mac"
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Green VPN",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

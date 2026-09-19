@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://green-vpn.app; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+<link rel="stylesheet" href="style.css">
+</head><body>
+  <div class="titlebar">GREEN VPN</div>
+  <div class="wrap">
+    <div id="orb" class="orb off">
+      <svg viewBox="0 0 24 24" class="power"><path d="M13,3h-2v10h2V3z M17.83,5.17l-1.42,1.42C17.99,7.86 19,9.81 19,12c0,3.87 -3.13,7 -7,7s-7,-3.13 -7,-7c0,-2.19 1.01,-4.14 2.58,-5.42L6.17,5.17C4.23,6.82 3,9.26 3,12c0,4.97 4.03,9 9,9s9,-4.03 9,-9C21,9.26 19.77,6.82 17.83,5.17z"/></svg>
+    </div>
+    <div id="state" class="state off">NOT CONNECTED</div>
+    <div id="timer" class="timer"></div>
+    <div id="progWrap" class="progwrap"><div id="progBar" class="progbar"></div></div>
+    <div id="progTxt" class="progtxt"></div>
+
+    <div class="picker">
+      <div class="picker-label">Location</div>
+      <div id="drop" class="drop">
+        <button id="dropSel" class="drop-sel" type="button">
+          <span class="dsel-main">Loading…</span>
+          <span class="caret">▾</span>
+        </button>
+        <div id="dropList" class="drop-list"></div>
+      </div>
+    </div>
+
+    <button id="toggle" class="btn off">Connect</button>
+    <div class="foot">Full-device VPN · Secure &amp; fast</div>
+  </div>
+  <script src="renderer.js"></script>
+</body></html>
